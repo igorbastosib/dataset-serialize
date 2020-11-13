@@ -414,7 +414,11 @@ begin
   if not TDataSetSerializeConfig.GetInstance.LowerCamelCase then
     Exit;
   LFieldName := EmptyStr;
+{$IFDEF MSWINDOWS}
   for I := 1 to Length(Result) do
+{$ELSE}
+  for I := 0 to Pred(Length(Result)) do
+{$ENDIF}
   begin
     if CharInSet(Result[I], ['A'..'Z']) and CharInSet(Result[Pred(I)], ['a'..'z']) then
       LFieldName := LFieldName + '_';
