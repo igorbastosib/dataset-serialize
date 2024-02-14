@@ -164,6 +164,8 @@ function TDataSetSerialize.DataSetToJSONArray(const ADataSet: TDataSet; const Is
 var
   LBookMark: TBookmark;
   LDateTimeFormatStr: string;
+  LHexString: String;
+  LByteValue: Byte;
 begin
   Result := TJSONArray.Create;
   if ADataSet.IsEmpty then
@@ -240,13 +242,20 @@ begin
             end;
           TFieldType.ftFMTBcd, TFieldType.ftBCD:
             Result.Add(BcdToDouble(ADataSet.Fields[0].AsBcd));
-          TFieldType.ftGraphic, TFieldType.ftBlob, TFieldType.ftOraBlob, TFieldType.ftStream:
+          TFieldType.ftGraphic, TFieldType.ftBlob, TFieldType.ftOraBlob, TFieldType.ftOraClob, TFieldType.ftStream:
             begin
               if IsEncodeBlob then
                 Result.Add(EncodingBlobField(ADataSet.Fields[0]))
               else
                 Result.Add(ADataSet.Fields[0].AsString);
             end;
+          TFieldType.ftVarBytes, TFieldType.ftBytes:
+            begin
+              LHexString := EmptyStr;
+              for LByteValue in ADataSet.Fields[0].AsBytes do
+                LHexString := LHexString + IntToHex(LByteValue, 2);
+              Result.Add(LHexString);
+            end
         else
           raise EDataSetSerializeException.CreateFmt(FIELD_TYPE_NOT_FOUND, [ADataSet.Fields[0].FieldName]);
         end;
@@ -265,13 +274,15 @@ end;
 
 function TDataSetSerialize.DataSetToJSONObject(const ADataSet: TDataSet; const AValue: Boolean = True): TJSONObject;
 var
-  LKey: string;
-  LDateTimeFormatStr: string;
+  LKey, LDateTimeFormatStr: string;
   {$IF NOT DEFINED(FPC)}
+  LDataSetNameNotDefinedCount: Integer;
+  LHexString, LDataSetName, LStringValue: string;
   LNestedDataSet: TDataSet;
   LDataSetDetails: TList<TDataSet>;
   {$ENDIF}
   LField: TField;
+  LByteValue: Byte;
 begin
   Result := TJSONObject.Create;
   if not Assigned(ADataSet) or ADataSet.IsEmpty then
@@ -302,7 +313,12 @@ begin
       TFieldType.ftInteger, TFieldType.ftSmallint, TFieldType.ftAutoInc{$IF NOT DEFINED(FPC)}, TFieldType.ftShortint, TFieldType.ftLongWord, TFieldType.ftWord, TFieldType.ftByte{$ENDIF}:
         Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}LField.AsInteger{$ELSE}TJSONNumber.Create(LField.AsInteger){$ENDIF});
       TFieldType.ftLargeint:
-        Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}LField.AsLargeInt{$ELSE}TJSONNumber.Create(LField.AsLargeInt){$ENDIF});
+        begin
+          if TDataSetSerializeConfig.GetInstance.Export.ExportLargeIntAsString then
+            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}LField.AsLargeInt.ToString{$ELSE}TJSONString.Create(LField.AsLargeInt.ToString){$ENDIF})
+          else
+            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}LField.AsLargeInt{$ELSE}TJSONNumber.Create(LField.AsLargeInt){$ENDIF});
+        end; 
       {$IF NOT DEFINED(FPC)}TFieldType.ftSingle, TFieldType.ftExtended, {$ENDIF}TFieldType.ftFloat:
         begin
           if TDataSetSerializeConfig.GetInstance.Export.FormatFloat.Trim.IsEmpty then
@@ -310,8 +326,27 @@ begin
           else
             Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(FormatFloat(TDataSetSerializeConfig.GetInstance.Export.FormatFloat, LField.AsFloat)));
         end;
-      TFieldType.ftString, TFieldType.ftWideString, TFieldType.ftMemo, TFieldType.ftWideMemo, TFieldType.ftGuid, TFieldType.ftFixedChar, TFieldType.ftFixedWideChar:
+      TFieldType.ftGuid:
         Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(LField.AsWideString));
+      TFieldType.ftString, TFieldType.ftWideString, TFieldType.ftMemo, TFieldType.ftWideMemo, TFieldType.ftFixedChar, TFieldType.ftFixedWideChar:
+        begin
+          LStringValue := Trim(LField.AsWideString);
+          if TDataSetSerializeConfig.GetInstance.Export.TryConvertStringToJson then
+          begin
+            if (LStringValue.StartsWith('{') and LStringValue.EndsWith('}')) or (LStringValue.StartsWith('[') and LStringValue.EndsWith(']')) then
+            begin
+              try
+                Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}GetJSON(LStringValue){$ELSE}TJSONObject.ParseJSONValue(LStringValue){$ENDIF});
+              except
+                Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(LField.AsWideString));
+              end;
+            end
+            else
+              Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(LField.AsWideString));
+          end
+          else
+            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(LField.AsWideString));
+        end;
       TFieldType.ftDateTime,TFieldType.ftTimeStamp:
         begin
           case TDataSetSerializeConfig.GetInstance.DateTimeFormat of
@@ -351,7 +386,10 @@ begin
             Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(FormatCurr(TDataSetSerializeConfig.GetInstance.Export.FormatCurrency, LField.AsCurrency)));
         end;
       TFieldType.ftFMTBcd, TFieldType.ftBCD:
-        Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}BcdToDouble(LField.AsBcd){$ELSE}TJSONNumber.Create(BcdToDouble(LField.AsBcd)){$ENDIF});
+        if TDataSetSerializeConfig.GetInstance.Export.ExportBCDAsFloat then
+          Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}TJSONExtFloatNumber.Create(BcdToDouble(LField.AsBcd)){$ELSE}TJSONNumber.Create(BcdToDouble(LField.AsBcd)){$ENDIF})
+        else
+          Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}BcdToDouble(LField.AsBcd){$ELSE}TJSONNumber.Create(BcdToDouble(LField.AsBcd)){$ENDIF});
       {$IF NOT DEFINED(FPC)}
       TFieldType.ftDataSet:
         begin
@@ -359,8 +397,15 @@ begin
           Result.AddPair(LKey, DataSetToJSONArray(LNestedDataSet, False, AValue));
         end;
       {$ENDIF}
-      TFieldType.ftGraphic, TFieldType.ftBlob, TFieldType.ftOraBlob{$IF NOT DEFINED(FPC)}, TFieldType.ftStream{$ENDIF}:
+      TFieldType.ftGraphic, TFieldType.ftBlob, TFieldType.ftOraBlob, TFieldType.ftOraClob{$IF NOT DEFINED(FPC)}, TFieldType.ftStream{$ENDIF}:
         Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(IfThen(FEncodeBase64Blob, EncodingBlobField(LField), LField.AsString)));
+      TFieldType.ftVarBytes, TFieldType.ftBytes:
+        begin
+          LHexString := EmptyStr;
+          for LByteValue in LField.AsBytes do
+            LHexString := LHexString + IntToHex(LByteValue, 2);
+          Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, LHexString);
+        end;
       else
         raise EDataSetSerializeException.CreateFmt(FIELD_TYPE_NOT_FOUND, [LKey]);
     end;
@@ -371,6 +416,7 @@ begin
   begin
     LDataSetDetails := TList<TDataSet>.Create;
     try
+      LDataSetNameNotDefinedCount := 0;
       TDataSetSerializeUtils.GetDetailsDatasets(ADataSet, LDataSetDetails);
       for LNestedDataSet in LDataSetDetails do
       begin
@@ -383,10 +429,17 @@ begin
             Continue;
           if TDataSetSerializeConfig.GetInstance.Export.ExportOnlyFieldsVisible and (not HasVisibleFields(LNestedDataSet)) then
             Continue;
-          if TDataSetSerializeConfig.GetInstance.Export.ExportChildDataSetAsJsonObject and (LNestedDataSet.RecordCount = 1) then
-            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(TDataSetSerializeUtils.FormatDataSetName(LNestedDataSet.Name), DataSetToJsonObject(LNestedDataSet))
+          if string(LNestedDataSet.Name).Trim.IsEmpty then
+          begin
+            Inc(LDataSetNameNotDefinedCount);
+            LDataSetName := TDataSetSerializeUtils.FormatDataSetName('dataset_name_not_defined_' + LDataSetNameNotDefinedCount.ToString);
+          end
           else
-            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(TDataSetSerializeUtils.FormatDataSetName(LNestedDataSet.Name), DataSetToJSONArray(LNestedDataSet, True));
+            LDataSetName := TDataSetSerializeUtils.FormatDataSetName(LNestedDataSet.Name);
+          if TDataSetSerializeConfig.GetInstance.Export.ExportChildDataSetAsJsonObject and (LNestedDataSet.RecordCount = 1) then
+            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LDataSetName, DataSetToJsonObject(LNestedDataSet))
+          else
+            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LDataSetName, DataSetToJSONArray(LNestedDataSet, True));
         finally
           {$IF NOT DEFINED(FPC)}
           if FOnlyUpdatedRecords then

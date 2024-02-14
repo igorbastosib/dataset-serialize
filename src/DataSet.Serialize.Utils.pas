@@ -194,16 +194,19 @@ var
   LCaseNameDefinition: TCaseNameDefinition;
   LField: TArray<Char>;
 begin
-  Result := EmptyStr;
+  Result := AFieldName;
+  if TDataSetSerializeConfig.GetInstance.RemoveBlankSpaceFieldName then
+    Result := Result.Replace(' ', EmptyStr);
   LCaseNameDefinition := TDataSetSerializeConfig.GetInstance.CaseNameDefinition;
   case LCaseNameDefinition of
     cndLower:
-      Result := AFieldName.ToLower;
+      Result := Result.ToLower;
     cndUpper:
-      Result := AFieldName.ToUpper;
+      Result := Result.ToUpper;
     cndLowerCamelCase, cndUpperCamelCase:
       begin
-        LField := AFieldName.ToCharArray;
+        LField := Result.ToCharArray;
+        Result := EmptyStr;
         I := Low(LField);
         While i <= High(LField) do
         begin
@@ -221,11 +224,7 @@ begin
           end;
           Inc(I);
         end;
-        if Result.IsEmpty then
-          Result := AFieldName;
-      end
-  else
-    Result := AFieldName;
+      end;
   end;
 end;
 

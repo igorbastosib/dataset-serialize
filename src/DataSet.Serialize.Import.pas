@@ -225,6 +225,9 @@ var
   LTryStrToDateTime: TDateTime;
   LTryStrToCurr: Currency;
   LTryStrToFloat: Double;
+  LHex: Integer;
+  LByteValue: Byte;
+  LBytes: TBytes;
 begin
   if (not Assigned(AJSONObject)) or (not Assigned(ADataSet)) or (AJSONObject.Count = 0) then
     Exit;
@@ -335,6 +338,11 @@ begin
           LField.Clear;
           Continue;
         end;
+        if LJSONValue.Value = EmptyStr then
+        begin
+          LField.Clear;
+          Continue;
+        end;
         if Assigned(LField.OnSetText) then
         begin
           LField.Text := LJSONValue.Value;
@@ -344,7 +352,7 @@ begin
           TFieldType.ftBoolean:
             begin
               {$IF DEFINED(FPC)}
-              LField.AsBoolean := LJSONValue.AsBoolean;
+              LField.AsBoolean := (LJSONValue.AsString<>'') and LJSONValue.AsBoolean;
               {$ELSE}
               if LJSONValue.TryGetValue<Boolean>(LBooleanValue) then
                 LField.AsBoolean := LBooleanValue;
@@ -438,7 +446,7 @@ begin
               end;
             end;
           {$ENDIF}
-          TFieldType.ftGraphic, TFieldType.ftBlob, TFieldType.ftOraBlob{$IF NOT DEFINED(FPC)}, TFieldType.ftStream{$ENDIF}:
+          TFieldType.ftGraphic, TFieldType.ftBlob, TFieldType.ftOraBlob, TFieldType.ftOraClob{$IF NOT DEFINED(FPC)}, TFieldType.ftStream{$ENDIF}:
             begin
               if TDataSetSerializeConfig.GetInstance.Import.DecodeBase64BlobField then
                 LoadBlobFieldFromStream(LField, LJSONValue)
@@ -449,6 +457,18 @@ begin
                 else
                   LField.AsString := LJSONValue.Value;
               end;
+            end;
+          TFieldType.ftVarBytes, TFieldType.ftBytes:
+            begin
+              SetLength(LBytes, Length(LJSONValue.Value) div 2);
+              LHex := 1;
+              while LHex <= Length(LJSONValue.Value) do
+              begin
+                LByteValue := StrToInt('$' + Copy(LJSONValue.Value, LHex, 2));
+                LBytes[(LHex + 1) div 2 - 1] := LByteValue;
+                Inc(LHex, 2);
+              end;
+              LField.AsBytes := LBytes;
             end
         else
           raise EDataSetSerializeException.CreateFmt(FIELD_TYPE_NOT_FOUND, [LField.FieldName]);
@@ -601,11 +621,15 @@ var
   LMemoryStream: TMemoryStream;
   {$ENDIF}
 begin
+  {$IF DEFINED(FPC)}
+  LStringStream := TStringStream.Create(DecodeStringBase64((AJSONValue as TJSONString).Value));
+  {$ELSE}
   LStringStream := TStringStream.Create((AJSONValue as TJSONString).Value);
+  {$ENDIF}
   try
     LStringStream.Position := 0;
     {$IF DEFINED(FPC)}
-    TBlobField(AField).AsString := DecodeStringBase64(LStringStream.DataString);
+    TBlobField(AField).LoadFromStream(LStringStream);
     {$ELSE}
     LMemoryStream := TMemoryStream.Create;
     try
@@ -641,6 +665,7 @@ begin
     LFieldDef := ADataSet.FieldDefs.AddFieldDef;
     LFieldDef.Name := JSONPairToFieldName({$IF DEFINED(FPC)}AJSONObject.Names[I]{$ELSE}LJSONPair.JsonString.Value{$ENDIF});
     LFieldDef.DataType := TDataSetSerializeUtils.GetDataType({$IF DEFINED(FPC)}AJSONObject.Items[I]{$ELSE}LJSONPair.JsonValue{$ENDIF});
+    LFieldDef.Size := 0;
     if LFieldDef.DataType = ftString then
     begin
       if {$IF DEFINED(FPC)}AJSONObject.Items[I].IsNull{$ELSE}LJSONPair.Null{$ENDIF} then
