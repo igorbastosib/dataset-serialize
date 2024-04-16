@@ -70,9 +70,6 @@ type
     FCaseNameDefinition: TCaseNameDefinition;
     FDataSetPrefix: TArray<string>;
     FDateTimeFormat: TDateTimeFormat;
-    FDateInputIsUTC: Boolean;
-    FDateTimeIsISO8601: Boolean;
-    FDateIsFloatingPoint: Boolean;
     FRemoveBlankSpaceFieldName: Boolean;
     FExport: TDataSetSerializeConfigExport;
     FImport: TDataSetSerializeConfigImport;
@@ -96,9 +93,9 @@ type
 
 	property DateTimeFormat: TDateTimeFormat read FDateTimeFormat write FDateTimeFormat;
 	property RemoveBlankSpaceFieldName: Boolean read FRemoveBlankSpaceFieldName write FRemoveBlankSpaceFieldName;
-    property DateTimeIsISO8601: Boolean read FDateTimeIsISO8601 write FDateTimeIsISO8601;
-    property DateInputIsUTC: Boolean read FDateInputIsUTC write FDateInputIsUTC;
-    property DateIsFloatingPoint: Boolean read FDateIsFloatingPoint write FDateIsFloatingPoint;
+    property DateTimeIsISO8601: Boolean read GetDateTimeIsISO8601 write SetDateTimeIsISO8601;
+    property DateInputIsUTC: Boolean read GetDateInputIsUTC write SetDateInputIsUTC;
+    property DateIsFloatingPoint: Boolean read GetDateIsFloatingPoint write SetDateIsFloatingPoint;
 	property DateTimeIsTimeStamp: Boolean read GetDateTimeIsTimeStamp write SetDateTimeIsTimeStamp;
 
     property &Export: TDataSetSerializeConfigExport read FExport write FExport;
