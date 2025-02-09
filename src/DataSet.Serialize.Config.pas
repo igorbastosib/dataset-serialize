@@ -17,6 +17,7 @@ type
     FExportLargeIntAsString: Boolean;
     FExportNullValues: Boolean;
     FExportNullAsEmptyString: Boolean;
+    FExportEmptyStringAsNull: Boolean;
     FExportOnlyFieldsVisible: Boolean;
     FExportEmptyDataSet: Boolean;
     FFormatCurrency: string;
@@ -39,6 +40,7 @@ type
     property ExportOnlyFieldsVisible: Boolean read FExportOnlyFieldsVisible write FExportOnlyFieldsVisible;
     property ExportNullValues: Boolean read FExportNullValues write FExportNullValues;
     property ExportNullAsEmptyString: Boolean read FExportNullAsEmptyString write FExportNullAsEmptyString;
+    property ExportEmptyStringAsNull: Boolean read FExportEmptyStringAsNull write FExportEmptyStringAsNull;
     property ExportEmptyDataSet: Boolean read FExportEmptyDataSet write FExportEmptyDataSet;
     property ExportChildDataSetAsJsonObject: Boolean read FExportChildDataSetAsJsonObject write FExportChildDataSetAsJsonObject;
     property TryConvertStringToJson: Boolean read FTryConvertStringToJson write FTryConvertStringToJson;
@@ -215,6 +217,7 @@ begin
   FTryConvertStringToJson := False;
   FExportNullValues := True;
   FExportNullAsEmptyString:= False;
+  FExportEmptyStringAsNull := False;
   FExportOnlyFieldsVisible := True;
   ExportEmptyDataSet := False;
   FFormatCurrency := EmptyStr;
