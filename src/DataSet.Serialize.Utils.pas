@@ -2,15 +2,27 @@ unit DataSet.Serialize.Utils;
 
 {$IF DEFINED(FPC)}
   {$MODE DELPHI}{$H+}
+  {$codePage utf8}
 {$ENDIF}
 
 interface
 
 uses
 {$IF DEFINED(FPC)}
-  DB, fpjson, SysUtils, Classes, Generics.Collections;
+  DB,
+  fpjson,
+  SysUtils,
+  Classes,
+  Generics.Collections;
 {$ELSE}
-  {$IF CompilerVersion >= 20}System.Character,{$ENDIF} System.Generics.Collections, System.DateUtils, System.JSON, Data.DB, System.SysUtils, System.Classes;
+  {$IF CompilerVersion >= 20}
+    System.Character,
+  {$ENDIF}
+  System.Generics.Collections,
+  System.JSON,
+  Data.DB,
+  System.SysUtils,
+  System.Classes;
 {$ENDIF}
 
 type
@@ -124,7 +136,8 @@ type
 
 implementation
 
-uses DataSet.Serialize.Consts, DataSet.Serialize.Config;
+uses DataSet.Serialize.Consts,
+  DataSet.Serialize.Config;
 
 { TMyHackDataset }
 
@@ -193,11 +206,13 @@ var
   I: Integer;
   LCaseNameDefinition: TCaseNameDefinition;
   LField: TArray<Char>;
+  LConfig: TDataSetSerializeConfig;
 begin
   Result := AFieldName;
-  if TDataSetSerializeConfig.GetInstance.RemoveBlankSpaceFieldName then
+  LConfig := TDataSetSerializeConfig.GetInstance;
+  if LConfig.RemoveBlankSpaceFieldName then
     Result := Result.Replace(' ', EmptyStr);
-  LCaseNameDefinition := TDataSetSerializeConfig.GetInstance.CaseNameDefinition;
+  LCaseNameDefinition := LConfig.CaseNameDefinition;
   case LCaseNameDefinition of
     cndLower:
       Result := Result.ToLower;
@@ -235,11 +250,13 @@ var
 begin
   Result := ADataSetName;
   for LPrefix in TDataSetSerializeConfig.GetInstance.DataSetPrefix do
+  begin
     if ADataSetName.StartsWith(LPrefix) then
     begin
       Result := Copy(ADataSetName, Succ(LPrefix.Length), ADataSetName.Length - LPrefix.Length);
       Break;
     end;
+  end;
   Result := Self.FormatCaseNameDefinition(Result);
 end;
 

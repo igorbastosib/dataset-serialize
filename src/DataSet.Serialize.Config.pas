@@ -2,6 +2,7 @@ unit DataSet.Serialize.Config;
 
 {$IF DEFINED(FPC)}
   {$MODE DELPHI}{$H+}
+  {$codePage utf8}
 {$ENDIF}
 
 interface
@@ -90,8 +91,6 @@ type
     procedure SetDateTimeIsISO8601(const Value: Boolean);
     function GetDateTimeIsTimeStamp: Boolean;
     procedure SetDateTimeIsTimeStamp(const Value: Boolean);
-  protected
-    class function GetDefaultInstance: TDataSetSerializeConfig;
   public
     constructor Create;
     destructor Destroy; override;
@@ -159,7 +158,7 @@ begin
   Result := FDateTimeFormat = dtfTimeStamp;
 end;
 
-class function TDataSetSerializeConfig.GetDefaultInstance: TDataSetSerializeConfig;
+class function TDataSetSerializeConfig.GetInstance: TDataSetSerializeConfig;
 begin
   if not Assigned(FInstance) then
   begin
@@ -173,11 +172,6 @@ begin
     FInstance.DateTimeIsISO8601 := True;
   end;
   Result := FInstance;
-end;
-
-class function TDataSetSerializeConfig.GetInstance: TDataSetSerializeConfig;
-begin
-  Result := TDataSetSerializeConfig.GetDefaultInstance;
 end;
 
 procedure TDataSetSerializeConfig.SetDateInputIsUTC(const Value: Boolean);
