@@ -239,9 +239,6 @@ else
             end;
           TFieldType.ftTime, TFieldType.ftDate:
             begin
- if FConfig.DateIsFloatingPoint then
-                Result.Add(ADataSet.Fields[0].AsDateTime)
-else
               case ADataSet.Fields[0].DataType of
                 TFieldType.ftDate:
                   LDateTimeFormatStr := TDataSetSerializeConfig.GetInstance.Export.FormatDate;
@@ -257,13 +254,6 @@ else
               else
                 Result.Add(FormatDateTime(LDateTimeFormatStr, ADataSet.Fields[0].AsDateTime));
               end;
-            end;
-          TFieldType.ftDate:
-            begin
-              if FConfig.DateIsFloatingPoint then
-                Result.Add(ADataSet.Fields[0].AsDateTime)
-              else
-                Result.Add(FormatDateTime(FConfig.Export.FormatDate, ADataSet.Fields[0].AsDateTime));
             end;
           TFieldType.ftCurrency:
             begin
@@ -413,9 +403,6 @@ else
         end;
       TFieldType.ftTime, TFieldType.ftDate:
         begin
- if FConfig.DateIsFloatingPoint then
-            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}LField.AsFloat{$ELSE}TJSONNumber.Create(LField.AsFloat){$ENDIF})
-else
           case ADataSet.Fields[0].DataType of
             TFieldType.ftDate:
               LDateTimeFormatStr := TDataSetSerializeConfig.GetInstance.Export.FormatDate;
@@ -431,13 +418,6 @@ else
           else
             Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(FormatDateTime(LDateTimeFormatStr, LField.AsDateTime)));
           end;
-        end;
-      TFieldType.ftDate:
-        begin
-          if FConfig.DateIsFloatingPoint then
-            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, {$IF DEFINED(FPC)}LField.AsFloat{$ELSE}TJSONNumber.Create(LField.AsFloat){$ENDIF})
-          else
-            Result.{$IF DEFINED(FPC)}Add{$ELSE}AddPair{$ENDIF}(LKey, TJSONString.Create(FormatDateTime(FConfig.Export.FormatDate, LField.AsDateTime)));
         end;
       TFieldType.ftCurrency:
         begin
