@@ -353,7 +353,8 @@ begin
           Continue;
         {$ELSE}
         if not AJSONObject.TryGetValue(TDataSetSerializeUtils.FormatCaseNameDefinition(LField.FieldName), LJSONValue) then
-          AJSONObject.TryGetValue(LField.FieldName, LJSONValue);
+          if not AJSONObject.TryGetValue(LField.FieldName, LJSONValue) then
+            LJSONValue := nil;
         if not Assigned(LJSONValue) then
         begin
           // In case the JSON key name has dots, the native method TryGetValue doesn't find it
